@@ -121,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Detect current URL to redirect back correctly (handles localhost vs production)
         const redirectUrl = window.location.origin;
+        console.log("Initiating Google Login with redirect to:", redirectUrl);
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',

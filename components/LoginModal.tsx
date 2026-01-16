@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 import { MagicWandIcon, AlertCircleIcon } from './icons';
+import { isSupabaseConfigured, supabaseUrl } from '../services/supabaseClient';
 
 interface LoginModalProps {
     isOpen: boolean;
@@ -13,6 +14,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
     const { loginWithGoogle, error: contextError } = useAuth();
     const [isProcessing, setIsProcessing] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
+    const [showDebug, setShowDebug] = useState(false);
 
     if (!isOpen) return null;
 
@@ -30,6 +32,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
     };
 
     const displayError = localError || contextError;
+    const currentOrigin = window.location.origin;
 
     return (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] animate-fade-in p-4">
@@ -54,9 +57,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
                         <div>
                             <p className="text-red-200 text-xs font-bold mb-1">Login Failed</p>
                             <p className="text-red-300 text-xs">{displayError}</p>
-                            {displayError.includes('configuration') && (
-                                <p className="text-red-300 text-[10px] mt-2 italic">Tip: Check your Supabase Google Provider settings and callback URL.</p>
-                            )}
                         </div>
                     </div>
                 )}
@@ -75,12 +75,36 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
                                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                             </svg>
                         )}
-                        {isProcessing ? 'Connecting to Google...' : 'Sign in with Google'}
+                        {isProcessing ? 'Connecting...' : 'Sign in with Google'}
                     </button>
                     
-                    <p className="text-[10px] text-gray-500 mt-2">
-                        Authentication is handled securely via Supabase.
-                    </p>
+                    <button onClick={() => setShowDebug(!showDebug)} className="text-[10px] text-gray-500 hover:text-gray-300 underline mt-2">
+                        {showDebug ? "Hide Diagnostics" : "Show Login Diagnostics"}
+                    </button>
+
+                    {showDebug && (
+                        <div className="bg-black/50 p-3 rounded text-[10px] text-left font-mono text-gray-300 space-y-2 border border-gray-700">
+                            <div>
+                                <span className="text-gray-500 block">Supabase Status:</span>
+                                <span className={isSupabaseConfigured ? "text-green-400" : "text-red-400"}>
+                                    {isSupabaseConfigured ? "Connected" : "Not Configured (.env missing)"}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-gray-500 block">Supabase URL:</span>
+                                <span className="break-all">{supabaseUrl}</span>
+                            </div>
+                            <div>
+                                <span className="text-gray-500 block">Required Redirect URL:</span>
+                                <div className="p-1 bg-gray-900 rounded border border-gray-600 select-all cursor-text text-yellow-300 break-all">
+                                    {currentOrigin}
+                                </div>
+                                <p className="text-gray-500 mt-1">
+                                    *Add this URL exactly to Supabase Auth -> URL Configuration -> Redirect URLs
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
