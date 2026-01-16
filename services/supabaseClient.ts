@@ -20,6 +20,9 @@ if (!rawUrl || !rawKey) {
     console.warn("⚠️ Supabase URL or Key is missing. Check your .env file or Vercel Environment Variables. App will run in limited mode.");
 }
 
+// Check if we have valid configuration
+export const isSupabaseConfigured = !!rawUrl && !!rawKey && rawUrl !== 'https://placeholder.supabase.co';
+
 // CRITICAL FIX: "supabaseUrl is required" error.
 // We must provide a valid-looking URL string to createClient even if env vars are missing.
 // This prevents the entire app from crashing on load. Calls to Supabase will simply fail gracefully later.

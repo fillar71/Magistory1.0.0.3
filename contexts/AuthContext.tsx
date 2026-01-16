@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
@@ -25,6 +25,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Fetch profile data (credits) from 'profiles' table
     const fetchProfile = async (authUser: SupabaseUser) => {
+        if (!isSupabaseConfigured) return;
+        
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -48,6 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
+        if (!isSupabaseConfigured) {
+            // In Demo mode, we don't persist session automatically to avoid confusion, 
+            // or we could check localStorage manually. For now, simple init.
+            setIsLoading(false);
+            return;
+        }
+
         // Check active session
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
@@ -70,6 +79,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const loginWithGoogle = async () => {
+        if (!isSupabaseConfigured) {
+            console.warn("Supabase not configured. Using Mock Login for Demo.");
+            // SIMULATE LOGIN for Demo Mode
+            setUser({
+                id: 'demo-user-123',
+                name: 'Demo User',
+                email: 'demo@magistory.com',
+                credits: 50 // Give free credits in demo mode
+            });
+            return;
+        }
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -80,18 +101,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = async () => {
-        await supabase.auth.signOut();
+        if (isSupabaseConfigured) {
+            await supabase.auth.signOut();
+        }
         setUser(null);
     };
 
     const deductCredits = async (cost: number, action: string): Promise<boolean> => {
         if (!user) return false;
 
+        // DEMO MODE LOGIC
+        if (!isSupabaseConfigured) {
+            if (user.credits >= cost) {
+                setUser(prev => prev ? { ...prev, credits: prev.credits - cost } : null);
+                return true;
+            } else {
+                alert("Insufficient demo credits! Refresh to reset.");
+                return false;
+            }
+        }
+
+        // REAL MODE LOGIC
         // Call the Postgres function we defined in SQL Editor
         const { data, error } = await supabase.rpc('deduct_credits', { amount: cost });
 
         if (error) {
             console.error("Credit transaction failed:", error);
+            // Fallback for UI if RPC fails but we are logged in (e.g. network glitch)
             return false;
         }
 
