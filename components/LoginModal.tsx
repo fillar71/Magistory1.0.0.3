@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
-import { MagicWandIcon } from './icons';
+import { MagicWandIcon, AlertCircleIcon } from './icons';
 
 interface LoginModalProps {
     isOpen: boolean;
@@ -10,27 +10,29 @@ interface LoginModalProps {
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => {
-    const { loginWithGoogle } = useAuth();
+    const { loginWithGoogle, error: contextError } = useAuth();
     const [isProcessing, setIsProcessing] = useState(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
     const handleGoogleLogin = async () => {
         setIsProcessing(true);
-        setErrorMsg(null);
+        setLocalError(null);
         try {
             await loginWithGoogle();
-            // User will be redirected, so no need to close modal explicitly here usually
+            // User will be redirected by Supabase OAuth
         } catch (err: any) {
             console.error("Login Error:", err);
-            setErrorMsg(err.message || "Failed to connect to Google.");
+            setLocalError(err.message || "Failed to initiate Google Login.");
             setIsProcessing(false);
         }
     };
 
+    const displayError = localError || contextError;
+
     return (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] animate-fade-in">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] animate-fade-in p-4">
             <div className="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 text-center max-w-md w-full relative">
                 
                 {onClose && (
@@ -44,11 +46,18 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
                 </div>
 
                 <h2 className="text-2xl font-bold text-white mb-2">Welcome to Magistory</h2>
-                <p className="text-gray-400 mb-8">{message || "Sign in to generate AI videos instantly."}</p>
+                <p className="text-gray-400 mb-8">{message || "Sign in to create, save, and export AI videos."}</p>
                 
-                {errorMsg && (
-                    <div className="mb-6 p-3 bg-red-900/30 border border-red-500/50 rounded text-red-200 text-xs text-left">
-                        <strong>Error:</strong> {errorMsg}
+                {displayError && (
+                    <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 rounded-lg text-left flex gap-3 items-start">
+                        <AlertCircleIcon className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-red-200 text-xs font-bold mb-1">Login Failed</p>
+                            <p className="text-red-300 text-xs">{displayError}</p>
+                            {displayError.includes('configuration') && (
+                                <p className="text-red-300 text-[10px] mt-2 italic">Tip: Check your Supabase Google Provider settings and callback URL.</p>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -56,7 +65,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
                     <button 
                         onClick={handleGoogleLogin}
                         disabled={isProcessing}
-                        className="w-full py-3 bg-white hover:bg-gray-100 text-gray-900 font-bold rounded-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 shadow-lg disabled:opacity-70"
+                        className="w-full py-3 bg-white hover:bg-gray-100 text-gray-900 font-bold rounded-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 shadow-lg disabled:opacity-70 disabled:scale-100"
                     >
                         {isProcessing ? <LoadingSpinner /> : (
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -66,11 +75,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
                                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                             </svg>
                         )}
-                        {isProcessing ? 'Connecting...' : 'Sign in with Google'}
+                        {isProcessing ? 'Connecting to Google...' : 'Sign in with Google'}
                     </button>
                     
                     <p className="text-[10px] text-gray-500 mt-2">
-                        Secured by Supabase Authentication.
+                        Authentication is handled securely via Supabase.
                     </p>
                 </div>
             </div>
