@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  api-server:
+    build: ./services/api-server
+    container_name: magistory-api
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+      # If using JSON DB fallback, no DATABASE_URL needed
+    volumes:
+      - ./data/api:/app/data  # Persist user data (JSON DB)
+
+  render-server:
+    build: ./services/render-server
+    container_name: magistory-render
+    restart: always
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+    volumes:
+      - ./data/render-temp:/app/temp # Optional: access render files from host if needed
+
+# Note: In a real production setup, you would typically use Nginx 
+# as a reverse proxy in front of these services to handle SSL (HTTPS).
