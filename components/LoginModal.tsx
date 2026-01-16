@@ -100,7 +100,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, message }) => 
                                     {currentOrigin}
                                 </div>
                                 <p className="text-gray-500 mt-1">
-                                    *Add this URL exactly to Supabase Auth -> URL Configuration -> Redirect URLs
+                                    *Add this URL exactly to Supabase Auth &rarr; URL Configuration &rarr; Redirect URLs
                                 </p>
                             </div>
                         </div>
