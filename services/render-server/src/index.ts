@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import { renderVideo } from './renderer';
@@ -38,8 +37,13 @@ app.use(cors({
 // 3. MEMORY OPTIMIZATION
 app.use(express.json({ limit: '100mb' }) as any);
 
-const PORT = parseInt(process.env.PORT || '3002');
-const TEMP_DIR = path.join(os.tmpdir(), 'magistory-render');
+// In IISNode, process.env.PORT is a named pipe, not a number.
+// We must let express listen on that pipe string directly.
+const PORT = process.env.PORT || 3002;
+
+// Use a local 'temp' folder relative to the app root in SmarterASP
+// os.tmpdir() might point to a system folder we don't have permission to list in IIS
+const TEMP_DIR = path.join((process as any).cwd(), 'temp');
 
 try {
     if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
@@ -93,9 +97,9 @@ app.get('/download/:jobId', (req, res) => {
     res.download(job.path, 'video.mp4');
 });
 
-// Start Server - BIND TO 0.0.0.0
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Render Server Live on port ${PORT} (0.0.0.0)`);
+// Start Server
+const server = app.listen(PORT, () => {
+    console.log(`✅ Render Server Live on ${PORT}`);
 });
 
 // Keep-Alive Fix

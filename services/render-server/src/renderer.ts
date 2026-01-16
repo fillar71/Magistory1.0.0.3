@@ -1,10 +1,38 @@
-
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { Buffer } from 'buffer';
+
+declare const require: any;
+
+// --- CONFIGURATION FOR SMARTERASP / WINDOWS ---
+// Prioritize local 'bin' folder for deployment stability
+const localBinPath = path.join((process as any).cwd(), 'bin');
+const localFfmpeg = path.join(localBinPath, 'ffmpeg.exe');
+const localFfprobe = path.join(localBinPath, 'ffprobe.exe');
+
+// Try local binary first (SmarterASP), then fallback to npm packages (Dev)
+if (fs.existsSync(localFfmpeg)) {
+    console.log('Using local FFmpeg binary:', localFfmpeg);
+    ffmpeg.setFfmpegPath(localFfmpeg);
+} else {
+    try {
+        const ffmpegPath = require('ffmpeg-static');
+        if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+    } catch (e) { console.warn("ffmpeg-static not found"); }
+}
+
+if (fs.existsSync(localFfprobe)) {
+    console.log('Using local FFprobe binary:', localFfprobe);
+    ffmpeg.setFfprobePath(localFfprobe);
+} else {
+    try {
+        const ffprobeStatic = require('ffprobe-static');
+        if (ffprobeStatic && ffprobeStatic.path) ffmpeg.setFfprobePath(ffprobeStatic.path);
+    } catch (e) { console.warn("ffprobe-static not found"); }
+}
 
 interface RenderJob {
     title: string;
@@ -64,21 +92,11 @@ function createASSFile(filePath: string, text: string, timings: any[], duration:
     let alignment = 2; 
     let posTag = "";
 
-    // If custom coordinates exist, use Alignment 5 (7=top-left, 5=top-left but legacy logic... typically 7 is top-left, 5 is top-left in some implementations or 7 is standard top-left)
-    // Actually, simple \pos(x,y) works best with Alignment 2 (center reference) or 5 (top-left reference).
-    // Let's use \pos(x,y) with alignment 2 (center) if x/y provided, converting percentage to pixels.
+    // If custom coordinates exist, use Alignment 5 (Center) and explicit position
     if (overlayStyle?.x !== undefined && overlayStyle?.y !== undefined) {
         const posX = Math.round((overlayStyle.x / 100) * width);
         const posY = Math.round((overlayStyle.y / 100) * height);
         posTag = `\\pos(${posX},${posY})`;
-        alignment = 5; // 5 is usually Top-Left relative to position, or 2 if we want center. 
-        // To match frontend "translate(-50%, -50%)", we should probably use alignment 5 (7 numpad) and offset, 
-        // OR better: Frontend uses center origin for text. 
-        // Let's assume standard behavior: \pos sets the anchor point.
-        // If we set Alignment=5 (Top Left of text at pos), it might shift.
-        // Alignment=2 (Bottom Center). 
-        // Let's stick to Alignment=2 (Bottom Center) as default, but if pos is set, override to 5 (Top Left) or 2 (Center).
-        // Since frontend centers the div on the coordinate, Alignment 5 (7 on numpad logic, but in ASS, 5 is often legacy top-left or center depending on version. Standard is numpad: 5=Center).
         alignment = 5; // Center-Center alignment
     } else {
         // Legacy position logic
@@ -206,12 +224,9 @@ export async function renderVideo(job: RenderJob, tempDir: string): Promise<stri
                 
                 // --- SUBTITLE SYNC FIX ---
                 // Scale word timings to match the EXACT audio duration.
-                // The frontend estimates duration (e.g. 5s), but real audio might be 5.2s.
-                // We stretch/shrink the subtitles to fit the real audio duration perfectly.
                 let syncedTimings = seg.wordTimings;
                 if (seg.wordTimings && seg.wordTimings.length > 0) {
                     const estimatedDuration = seg.duration || exactDuration;
-                    // Protect against division by zero
                     if (estimatedDuration > 0 && Math.abs(estimatedDuration - exactDuration) > 0.05) {
                         const ratio = exactDuration / estimatedDuration;
                         syncedTimings = seg.wordTimings.map((t: any) => ({
@@ -219,7 +234,6 @@ export async function renderVideo(job: RenderJob, tempDir: string): Promise<stri
                             start: t.start * ratio,
                             end: t.end * ratio
                         }));
-                        console.log(`Seg ${i}: Resynced subtitles. Ratio: ${ratio.toFixed(3)}`);
                     }
                 }
 
